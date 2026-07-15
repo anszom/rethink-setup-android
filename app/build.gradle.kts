@@ -12,13 +12,33 @@ android {
         applicationId = "io.github.anszom.rethink.setup"
         minSdk = 26
         targetSdk = 36
-        versionCode = 1
-        versionName = "1.0"
+        // On tag builds these come from the git tag via CI (see release.yml); otherwise
+        // they fall back to placeholder values for local/dev builds.
+        versionCode = System.getenv("VERSION_CODE")?.toInt() ?: 100
+        versionName = System.getenv("VERSION_NAME") ?: "0.1"
+    }
+
+    // Release signing: the keystore file is the only secret (delivered via the
+    // KEYSTORE_FILE env var, set from a GitHub secret in .github/workflows/release.yml).
+    // The password is a fixed formality — it only guards the keystore file, which is
+    // itself already kept secret — so it lives here in the clear, like the debug key's
+    // well-known "android" password. Generate the keystore with the same values.
+    val keystorePath = System.getenv("KEYSTORE_FILE")
+    signingConfigs {
+        if (keystorePath != null) {
+            create("release") {
+                storeFile = file(keystorePath)
+                storePassword = "android"
+                keyAlias = "rethink"
+                keyPassword = "android"
+            }
+        }
     }
 
     buildTypes {
         release {
             isMinifyEnabled = false
+            signingConfig = signingConfigs.findByName("release")
         }
     }
 

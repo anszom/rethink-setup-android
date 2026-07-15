@@ -1,0 +1,70 @@
+name: Release APK
+
+# Builds a signed release APK and attaches it to a GitHub Release.
+# Signing keystore + passwords come from repository secrets (see the "env" block below).
+# If those secrets are absent the build.gradle.kts signing config is skipped and the
+# release APK comes out unsigned (and non-installable), so make sure the secrets are set.
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+        with:
+          # Install only what an APK build needs — no emulator or system images.
+          packages: "platform-tools platforms;android-36 build-tools;36.1.0"
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Derive app version from tag
+        if: startsWith(github.ref, 'refs/tags/')
+        run: |
+          # Strip the leading "v": tag v1.2.3 -> versionName 1.2.3
+          VERSION_NAME="${GITHUB_REF_NAME#v}"
+          # Pack the (up to three) dotted components into a monotonically increasing
+          # integer versionCode: major*10000 + minor*100 + patch. Missing parts -> 0.
+          IFS='.' read -r MAJOR MINOR PATCH <<< "$VERSION_NAME"
+          VERSION_CODE=$(( ${MAJOR:-0} * 10000 + ${MINOR:-0} * 100 + ${PATCH:-0} ))
+          echo "VERSION_NAME=$VERSION_NAME" >> "$GITHUB_ENV"
+          echo "VERSION_CODE=$VERSION_CODE" >> "$GITHUB_ENV"
+          echo "Building versionName=$VERSION_NAME versionCode=$VERSION_CODE"
+
+      - name: Decode signing keystore
+        env:
+          KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
+        run: echo "$KEYSTORE_BASE64" | base64 --decode > "$RUNNER_TEMP/release.keystore"
+
+      - name: Build release APK
+        env:
+          KEYSTORE_FILE: ${{ runner.temp }}/release.keystore
+        run: ./gradlew assembleRelease --no-daemon
+
+      - name: Upload APK as workflow artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: rethink-setup-release
+          path: app/build/outputs/apk/release/app-release.apk
+
+      - name: Attach APK to GitHub Release
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: app/build/outputs/apk/release/app-release.apk
