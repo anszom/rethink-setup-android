@@ -6,6 +6,12 @@ onboarding an appliance — everything `rethink-setup.ts` does is reproduced on 
 
 Most code was shamelessly regurgiated out of an LLM.
 
+## Installation
+
+Download the latest apk from [Releases](https://github.com/anszom/rethink-setup-android/releases) & sideload.
+
+Google is locking down sideloading so YMMV. I'm not planning on getting the builds into Play Store, or jumping through any Google-approved signing ceremonies. Feel free to fork & redistribute as you see fit.
+
 ## Features
 
 ### Check DNS redirection
@@ -58,3 +64,8 @@ the `org.json` implementation bundled with Android.
   `local.properties` (not committed).
 
 - minSdk 26 (Android 8.0), compileSdk/targetSdk 36.
+
+## Notice
+
+LG ThinQ is likely a registered trademark, or whatever, I don't care. The name is used here for identification purposes only. I'm not in any way affiliated with LG.
+
