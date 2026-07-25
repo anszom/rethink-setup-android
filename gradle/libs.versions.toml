@@ -1,0 +1,17 @@
+[versions]
+androidxCore = "1.13.1"
+androidxAppCompat = "1.7.1"
+androidxLifecycle = "2.11.0"
+kotlinxCoroutines = "1.9.0"
+kotlin = "2.1.0"
+androidGradlePlugin = "8.11.1"
+
+[libraries]
+androidx-coreKtx = { module = "androidx.core:core-ktx", version.ref = "androidxCore" }
+androidx-appcompat = { module = "androidx.appcompat:appcompat", version.ref = "androidxAppCompat" }
+androidx-lifecycle-runtimeKtx = { module = "androidx.lifecycle:lifecycle-runtime-ktx", version.ref = "androidxLifecycle" }
+kotlinx-coroutinesAndroid = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-android", version.ref = "kotlinxCoroutines" }
+
+[plugins]
+android-application = { id = "com.android.application", version.ref = "androidGradlePlugin"}
+kotlin-android = { id = "org.jetbrains.kotlin.android", version.ref = "kotlin"}
