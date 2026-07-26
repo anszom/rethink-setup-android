@@ -3,4 +3,8 @@
     <string name="app_name">Rethink Setup</string>
     <string name="title_provision">Provision a device</string>
     <string name="title_dns">Check DNS redirection</string>
+
+    <string name="main_description">Set up an LG appliance to talk to your local Rethink cloud, or verify that DNS redirection is working.</string>
+    <string name="dns_description">Connect this phone to your home Wi-Fi network (the one Rethink runs on), then tap Check.\n\nThe request is forced over Wi-Fi so it is not sent over mobile data.</string>
+    <string name="dns_check">Check redirection</string>
 </resources>
