@@ -7,6 +7,9 @@ import androidx.appcompat.app.AppCompatActivity
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -24,6 +27,7 @@ import androidx.navigation3.ui.NavDisplay
 import dagger.hilt.android.AndroidEntryPoint
 import io.github.anszom.rethink.setup.R
 import io.github.anszom.rethink.setup.dns.DnsScreen
+import io.github.anszom.rethink.setup.provision.ProvisionScreen
 
 @AndroidEntryPoint
 class MainActivity : AppCompatActivity() {
@@ -56,7 +60,7 @@ class MainActivity : AppCompatActivity() {
                                 if (showBackButton) {
                                     IconButton(onClick = { backStack.removeLastOrNull() }) {
                                         Icon(
-                                            painterResource(R.drawable.baseline_arrow_back_24),
+                                            imageVector = Icons.AutoMirrored.Filled.ArrowBack,
                                             contentDescription = null
                                         )
                                     }
@@ -91,7 +95,7 @@ class MainActivity : AppCompatActivity() {
 
                                     NavLocation.Provision -> {
                                         NavEntry(key) {
-                                            Text("Provision")
+                                            ProvisionScreen()
                                         }
                                     }
                                 }
