@@ -4,7 +4,7 @@ A small Android companion app for [Rethink](https://github.com/anszom/rethink), 
 LG ThinQ cloud. It removes the need for a Wi-Fi-enabled Linux laptop with Node.js when
 onboarding an appliance — everything `rethink-setup.ts` does is reproduced on the phone.
 
-Most code was shamelessly regurgitated out of an LLM.
+The initial version was shamelessly regurgitated out of an LLM, later rewritten by @w1ll1am23 (thanks!).
 
 ## Installation
 
