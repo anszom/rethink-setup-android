@@ -39,7 +39,7 @@ fun MainScreen(backStack: MutableList<NavLocation> ) {
         ) {
             Text(stringResource(R.string.title_dns))
         }
-        Spacer(Modifier.padding(16.dp))
+        Spacer(Modifier.padding(8.dp))
         Button(
             modifier = Modifier.fillMaxWidth(),
             onClick = {

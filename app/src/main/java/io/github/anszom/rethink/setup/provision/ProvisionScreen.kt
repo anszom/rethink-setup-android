@@ -7,10 +7,9 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.foundation.text.input.TextFieldState
 import androidx.compose.foundation.text.input.rememberTextFieldState
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material.icons.filled.VisibilityOff
@@ -27,10 +26,12 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 
@@ -49,26 +50,46 @@ private fun HandleUiState(
     state: ProvisionViewModel.ProvisionScreenState,
     handleAction: (ProvisionViewModel.ProvisionAction) -> Unit
 ) {
-    when (state) {
-        ProvisionViewModel.ProvisionScreenState.StepOne -> {
-            ProvisionStepOne({ ssid, password ->
-                handleAction(
-                    ProvisionViewModel.ProvisionAction.SaveCredentials(
-                        ssid = ssid,
-                        password = password
+    Column {
+        StepContainer(state)
+        Spacer(Modifier.size(16.dp))
+        when (state) {
+            ProvisionViewModel.ProvisionScreenState.StepOne -> {
+                ProvisionStepOne { ssid, password ->
+                    handleAction(
+                        ProvisionViewModel.ProvisionAction.SaveCredentials(
+                            ssid = ssid,
+                            password = password
+                        )
                     )
-                )
-            })
-        }
+                }
+            }
 
-        ProvisionViewModel.ProvisionScreenState.StepThree -> {
+            is ProvisionViewModel.ProvisionScreenState.StepTwo -> {
+                ProvisionStepTwo(state.message, handleAction)
+            }
 
-        }
-
-        is ProvisionViewModel.ProvisionScreenState.StepTwo -> {
-            ProvisionStepTwo(state.message)
+            is ProvisionViewModel.ProvisionScreenState.StepThree -> {
+                ProvisionStepThree(state.message)
+            }
         }
     }
+}
+
+@Composable
+private fun StepContainer(state: ProvisionViewModel.ProvisionScreenState) {
+    val step = when (state) {
+        ProvisionViewModel.ProvisionScreenState.StepOne -> 1
+        is ProvisionViewModel.ProvisionScreenState.StepTwo -> 2
+        is ProvisionViewModel.ProvisionScreenState.StepThree -> 3
+    }
+    Text(
+        modifier = Modifier.fillMaxWidth(),
+        textAlign = TextAlign.Center,
+        text = "Step $step of 3",
+        fontWeight = FontWeight.Bold,
+        fontSize = 24.sp
+    )
 }
 
 @Composable
@@ -77,8 +98,6 @@ private fun ProvisionStepOne(saveInput: (String, String) -> Unit) {
     val password = rememberSaveable { mutableStateOf("") }
 
     Column(Modifier.padding(16.dp)) {
-        Text(text = "Step 1 of 3")
-        Spacer(Modifier.size(16.dp))
         Text(text = "Enter your home Wi-Fi credentials")
         Spacer(Modifier.size(8.dp))
         TextField(
@@ -116,10 +135,76 @@ private fun ProvisionStepOne(saveInput: (String, String) -> Unit) {
 }
 
 @Composable
-private fun ProvisionStepTwo(message: String) {
+private fun ProvisionStepTwo(
+    message: String,
+    handleAction: (ProvisionViewModel.ProvisionAction) -> Unit
+) {
 
     Column(Modifier.padding(16.dp)) {
-        Text(text = "Step 2 of 3")
+        Text(
+            text = "Connect to the appliance Wi-Fi",
+            fontWeight = FontWeight.Bold,
+            fontSize = 24.sp
+        )
+        Spacer(Modifier.size(16.dp))
+        Text(text = "In your phone's Wi-Fi settings, join the appliance's network (its name usually starts with \"LG_Smart\" or \"LGE_\" ). It has no internet — that is expected. This screen updates automatically once you are connected.")
+        Spacer(Modifier.size(8.dp))
+        Text(text = "Note: if the appliance's network does not appear, it may need to be put into Wi-Fi setup mode first. The exact action varies by model — for example, some air conditioners require a special two-button combination on the remote. Check your appliance's manual.")
+        Spacer(Modifier.size(16.dp))
+        Text(text = message)
+        Spacer(Modifier.size(16.dp))
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
+            Button(
+                modifier = Modifier,
+                onClick = {
+                    handleAction(ProvisionViewModel.ProvisionAction.BackToStepOne)
+                },
+            ) {
+                Row(
+                    horizontalArrangement = Arrangement.SpaceEvenly,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Icon(
+                        imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                        contentDescription = null
+                    )
+                    Text("Back")
+                }
+            }
+            Button(
+                modifier = Modifier,
+                onClick = {
+                    handleAction(ProvisionViewModel.ProvisionAction.ProvisionDevice)
+                },
+            ) {
+                Row(
+                    horizontalArrangement = Arrangement.SpaceEvenly,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text("Start Setup")
+                    Icon(
+                        imageVector = Icons.AutoMirrored.Filled.ArrowForward,
+                        contentDescription = null
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun ProvisionStepThree(
+    message: String,
+) {
+    Column(Modifier.padding(16.dp)) {
+        Text(
+            text = "Connect to the appliance Wi-Fi",
+            fontWeight = FontWeight.Bold,
+            fontSize = 24.sp
+        )
         Spacer(Modifier.size(16.dp))
         Text(text = message)
     }
@@ -138,7 +223,6 @@ fun PasswordTextField(password: MutableState<String>) {
         singleLine = true,
         placeholder = { Text("Password") },
         visualTransformation = if (passwordVisible) VisualTransformation.None else PasswordVisualTransformation(),
-        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
         trailingIcon = {
             val image = if (passwordVisible) {
                 Icons.Filled.Visibility

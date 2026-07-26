@@ -22,10 +22,5 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
-
-        <activity
-            android:name=".ProvisionActivity"
-            android:exported="false"
-            android:label="@string/title_provision" />
     </application>
 </manifest>
