@@ -54,8 +54,8 @@ private fun HandleUiState(
         StepContainer(state)
         Spacer(Modifier.size(16.dp))
         when (state) {
-            ProvisionViewModel.ProvisionScreenState.StepOne -> {
-                ProvisionStepOne { ssid, password ->
+            is ProvisionViewModel.ProvisionScreenState.StepOne -> {
+                ProvisionStepOne(state.ssid, state.password) { ssid, password ->
                     handleAction(
                         ProvisionViewModel.ProvisionAction.SaveCredentials(
                             ssid = ssid,
@@ -79,7 +79,7 @@ private fun HandleUiState(
 @Composable
 private fun StepContainer(state: ProvisionViewModel.ProvisionScreenState) {
     val step = when (state) {
-        ProvisionViewModel.ProvisionScreenState.StepOne -> 1
+        is ProvisionViewModel.ProvisionScreenState.StepOne -> 1
         is ProvisionViewModel.ProvisionScreenState.StepTwo -> 2
         is ProvisionViewModel.ProvisionScreenState.StepThree -> 3
     }
@@ -93,9 +93,14 @@ private fun StepContainer(state: ProvisionViewModel.ProvisionScreenState) {
 }
 
 @Composable
-private fun ProvisionStepOne(saveInput: (String, String) -> Unit) {
-    val wifiName = rememberTextFieldState("")
-    val password = rememberSaveable { mutableStateOf("") }
+private fun ProvisionStepOne(
+    initialSsid: String,
+    initialPassword: String,
+    saveInput: (String, String) -> Unit
+) {
+    // Seeded from the credentials cached by a previous run, so a retry needs no re-typing.
+    val wifiName = rememberTextFieldState(initialSsid)
+    val password = rememberSaveable { mutableStateOf(initialPassword) }
 
     Column(Modifier.padding(16.dp)) {
         Text(text = "Enter your home Wi-Fi credentials")

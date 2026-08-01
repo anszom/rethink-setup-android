@@ -18,15 +18,18 @@ import javax.inject.Inject
 @HiltViewModel
 class ProvisionViewModel @Inject constructor(
     @param:ApplicationContext private val context: Context,
+    private val credentials: CredentialStore,
 ) : ViewModel() {
-
-    private val _uiState = MutableStateFlow<ProvisionScreenState>(ProvisionScreenState.StepOne)
-    val uiState: StateFlow<ProvisionScreenState> = _uiState
 
     private val wifi = WifiMonitor(context)
     private var pollJob: Job? = null
-    private lateinit var ssid: String
-    private lateinit var password: String
+    private var ssid: String = credentials.ssid
+    private var password: String = credentials.password
+
+    private val _uiState = MutableStateFlow<ProvisionScreenState>(
+        ProvisionScreenState.StepOne(ssid, password)
+    )
+    val uiState: StateFlow<ProvisionScreenState> = _uiState
 
     fun handleAction(action: ProvisionAction) {
         when (action) {
@@ -67,6 +70,9 @@ class ProvisionViewModel @Inject constructor(
     private fun saveCredentials(ssid: String, password: String) {
         this.ssid = ssid
         this.password = password
+        // Cache them so a retry (or a later run of the app) starts pre-filled.
+        credentials.ssid = ssid
+        credentials.password = password
         stepTwo("")
         monitorWifi()
     }
@@ -107,8 +113,7 @@ class ProvisionViewModel @Inject constructor(
     private fun stepOne() {
         wifi.stop()
         pollJob?.cancel()
-        _uiState.value = ProvisionScreenState.StepOne
-
+        _uiState.value = ProvisionScreenState.StepOne(ssid, password)
     }
 
     sealed interface ProvisionAction {
@@ -124,7 +129,11 @@ class ProvisionViewModel @Inject constructor(
 
 
     sealed interface ProvisionScreenState {
-        data object StepOne : ProvisionScreenState
+        data class StepOne(
+            val ssid: String,
+            val password: String
+        ) : ProvisionScreenState
+
         data class StepTwo(
             val message: String,
             val canProceed: Boolean
