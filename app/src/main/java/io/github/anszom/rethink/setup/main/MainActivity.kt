@@ -22,7 +22,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.viewmodel.navigation3.rememberViewModelStoreNavEntryDecorator
 import androidx.navigation3.runtime.NavEntry
+import androidx.navigation3.runtime.rememberSaveableStateHolderNavEntryDecorator
 import androidx.navigation3.ui.NavDisplay
 import dagger.hilt.android.AndroidEntryPoint
 import io.github.anszom.rethink.setup.R
@@ -78,6 +80,14 @@ class MainActivity : AppCompatActivity() {
                         NavDisplay(
                             backStack = backStack,
                             onBack = { backStack.removeLastOrNull() },
+                            // Scope ViewModels to the back-stack entry, so popping a screen
+                            // clears its ViewModel. Without this the (activity-scoped)
+                            // ProvisionViewModel would keep its state and re-entering the
+                            // wizard would drop the user back on the last step they reached.
+                            entryDecorators = listOf(
+                                rememberSaveableStateHolderNavEntryDecorator(),
+                                rememberViewModelStoreNavEntryDecorator(),
+                            ),
                             entryProvider = { key ->
                                 when (key) {
                                     NavLocation.Main -> {

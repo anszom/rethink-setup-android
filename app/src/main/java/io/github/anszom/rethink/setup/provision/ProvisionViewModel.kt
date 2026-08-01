@@ -31,6 +31,11 @@ class ProvisionViewModel @Inject constructor(
     )
     val uiState: StateFlow<ProvisionScreenState> = _uiState
 
+    override fun onCleared() {
+        pollJob?.cancel()
+        wifi.stop()
+    }
+
     fun handleAction(action: ProvisionAction) {
         when (action) {
             is ProvisionAction.SaveCredentials -> saveCredentials(
