@@ -125,7 +125,9 @@ QwIDAQAB
         try {
             val out = socket.outputStream
             fun send(obj: JSONObject) {
-                out.write(obj.toString().toByteArray(Charsets.UTF_8))
+                val msg = obj.toString()
+                log("> $msg")
+                out.write(msg.toByteArray(Charsets.UTF_8))
                 out.flush()
             }
 
@@ -144,7 +146,7 @@ QwIDAQAB
                 for (i in 0 until n) {
                     splitter.feed(buf[i].toInt() and 0xff) { msg ->
                         val json = JSONObject(msg)
-                        log(msg)
+                        log("< $msg")
                         if (json.optString("type") != "response") return@feed
 
                         val result = json.optJSONObject("data")?.optString("result")

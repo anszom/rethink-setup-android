@@ -1,5 +1,6 @@
 package io.github.anszom.rethink.setup.provision
 
+import android.content.ClipData
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -11,6 +12,7 @@ import androidx.compose.foundation.text.input.rememberTextFieldState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
+import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.material3.Button
@@ -22,10 +24,13 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalClipboard
+import androidx.compose.ui.platform.toClipEntry
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
@@ -34,6 +39,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import kotlinx.coroutines.launch
 
 @Composable
 fun ProvisionScreen() {
@@ -70,7 +76,7 @@ private fun HandleUiState(
             }
 
             is ProvisionViewModel.ProvisionScreenState.StepThree -> {
-                ProvisionStepThree(state.message)
+                ProvisionStepThree(state.message, state.log, state.finished)
             }
         }
     }
@@ -203,7 +209,12 @@ private fun ProvisionStepTwo(
 @Composable
 private fun ProvisionStepThree(
     message: String,
+    log: String,
+    finished: Boolean,
 ) {
+    val clipboard = LocalClipboard.current
+    val scope = rememberCoroutineScope()
+
     Column(Modifier.padding(16.dp)) {
         Text(
             text = "Connect to the appliance Wi-Fi",
@@ -212,6 +223,28 @@ private fun ProvisionStepThree(
         )
         Spacer(Modifier.size(16.dp))
         Text(text = message)
+        if (finished) {
+            Spacer(Modifier.size(16.dp))
+            Button(
+                modifier = Modifier.fillMaxWidth(),
+                onClick = {
+                    scope.launch {
+                        clipboard.setClipEntry(
+                            ClipData.newPlainText("Rethink setup log", log).toClipEntry()
+                        )
+                    }
+                }
+            ) {
+                Row(
+                    horizontalArrangement = Arrangement.SpaceEvenly,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Icon(imageVector = Icons.Filled.ContentCopy, contentDescription = null)
+                    Spacer(Modifier.size(8.dp))
+                    Text("Copy logs")
+                }
+            }
+        }
     }
 }
 

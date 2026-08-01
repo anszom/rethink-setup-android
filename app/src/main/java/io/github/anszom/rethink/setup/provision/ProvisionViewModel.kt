@@ -83,6 +83,17 @@ class ProvisionViewModel @Inject constructor(
     }
 
     private fun provisionDevice() {
+        // Every progress line is kept, so the whole run can be copied out afterwards.
+        val log = mutableListOf<String>()
+        fun stepThree(message: String, finished: Boolean = false) {
+            log += message
+            _uiState.value = ProvisionScreenState.StepThree(
+                message = message,
+                log = log.joinToString("\n"),
+                finished = finished
+            )
+        }
+
         _uiState.value = ProvisionScreenState.StepThree("")
         pollJob?.cancel()
         wifi.network?.let {
@@ -95,19 +106,21 @@ class ProvisionViewModel @Inject constructor(
                         ssid,
                         password,
                     ) { message ->
-                        _uiState.value = ProvisionScreenState.StepThree(message)
-
+                        stepThree(message)
                     }
-                    _uiState.value =
-                        ProvisionScreenState.StepThree("✓ Done. The appliance will now join \"$ssid\" and reach out to Rethink.")
+                    stepThree(
+                        "✓ Done. The appliance will now join \"$ssid\" and reach out to Rethink.",
+                        finished = true
+                    )
                 } catch (e: Exception) {
-                    _uiState.value =
-                        ProvisionScreenState.StepThree("✗ Setup failed: ${e.message}\nReconnect this phone to the appliance's Wi-Fi and try again.")
+                    stepThree(
+                        "✗ Setup failed: ${e.message}\nReconnect this phone to the appliance's Wi-Fi and try again.",
+                        finished = true
+                    )
                 }
             }
         } ?: run {
-            _uiState.value = ProvisionScreenState.StepThree("Lost the appliance Wi-Fi connection")
-
+            stepThree("Lost the appliance Wi-Fi connection", finished = true)
         }
     }
 
@@ -144,7 +157,13 @@ class ProvisionViewModel @Inject constructor(
             val canProceed: Boolean
         ) : ProvisionScreenState
 
-        data class StepThree(val message: String) : ProvisionScreenState
+        data class StepThree(
+            val message: String,
+            /** Every progress line seen so far, for the "copy logs" button. */
+            val log: String = "",
+            /** True once the run has ended, successfully or not. */
+            val finished: Boolean = false
+        ) : ProvisionScreenState
 
     }
 }
