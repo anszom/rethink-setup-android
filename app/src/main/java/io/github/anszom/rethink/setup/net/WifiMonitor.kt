@@ -59,6 +59,17 @@ class WifiMonitor(context: Context) {
             ?.firstOrNull()
     }
 
+    /**
+     * True when Android has confirmed internet access on the current Wi-Fi network. Appliance APs
+     * never have it, so this rules out a home network sharing the appliance's subnet. Validation
+     * takes a few seconds after connecting, so a fresh home network briefly reads false.
+     */
+    fun hasValidatedInternet(): Boolean {
+        val net = network ?: return false
+        return cm.getNetworkCapabilities(net)
+            ?.hasCapability(NetworkCapabilities.NET_CAPABILITY_VALIDATED) == true
+    }
+
     fun stop() {
         callback?.let {
             try {

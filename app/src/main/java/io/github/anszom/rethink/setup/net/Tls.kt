@@ -40,13 +40,24 @@ object Tls {
     /** Hostname verifier that accepts any hostname (pairs with [sslSocketFactory]). */
     val allowAllHostnames = HostnameVerifier { _, _ -> true }
 
-    fun connect(network: Network, host: String, port: Int, timeoutMs: Int): SSLSocket {
+    /**
+     * @param tls12Only offer TLS 1.2 only, as upstream does for the Whisen module (1024-bit
+     * certificate, legacy suites). Its key size is never checked here: [trustAllManager] skips
+     * certificate path validation entirely.
+     */
+    fun connect(
+        network: Network,
+        host: String,
+        port: Int,
+        timeoutMs: Int,
+        tls12Only: Boolean = false,
+    ): SSLSocket {
         val plain = network.socketFactory.createSocket()
         plain.connect(InetSocketAddress(host, port), timeoutMs)
 
         val ssl = sslSocketFactory.createSocket(plain, host, port, true) as SSLSocket
         // Offer everything we can so the appliance's outdated suite is on the table.
-        ssl.enabledProtocols = ssl.supportedProtocols
+        ssl.enabledProtocols = if (tls12Only) arrayOf("TLSv1.2") else ssl.supportedProtocols
         ssl.enabledCipherSuites = ssl.supportedCipherSuites
         // Raw SSLSocket does no hostname verification anyway; make that explicit.
         ssl.sslParameters = ssl.sslParameters.apply { endpointIdentificationAlgorithm = null }

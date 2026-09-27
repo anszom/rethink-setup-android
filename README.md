@@ -26,16 +26,19 @@ A three-step wizard:
 2. **Connect to the appliance Wi-Fi.** Join the appliance's network in your phone's
    Wi-Fi settings (usually starts with `LG_Smart…` or `LGE_…`; it has no internet, which is
    expected). The screen polls the phone's IP and only enables **Start** once the
-   address is in the appliance's range (`192.168.120.x`).
-3. **Setting up.** Non-interactive — the app connects to `192.168.120.254:5500`, runs
-   the same handshake as `rethink-setup.ts`, and streams a log. A button returns to the
-   home screen when it finishes.
+   address is in an appliance range (`192.168.120.x`, or `192.168.1.x` for Whisen
+   appliances).
+3. **Setting up.** Non-interactive — the app connects to `192.168.120.254:5500` (or
+   `192.168.1.1:9000` on a Whisen network), runs the same handshake as `rethink-setup.ts`,
+   and streams a log. A button returns to the home screen when it finishes.
 
 The handshake:
 - **ThinQ1** (mTosp/XML) is tried first — `deviceinfo` then `apinfo`, with the fake
   `rethink` region code so the appliance dials `rethink.lgthinq.com`.
 - **ThinQ2** (JSON) is the fallback — `setDeviceInit → getDeviceInfo → setCertInfo →
   setApInfo → releaseDev`.
+- **Whisen** (HTTP over TLS, port 9000) is used instead on `192.168.1.x` networks —
+  `SetDeviceInit → GetDeviceInfo → SetDeviceInfo → SetDeviceConfig → ReleaseDevAp`.
 
 ## How the tricky bits work
 

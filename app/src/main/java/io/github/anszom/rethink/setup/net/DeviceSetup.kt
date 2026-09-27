@@ -2,6 +2,7 @@ package io.github.anszom.rethink.setup.net
 
 import android.net.Network
 import android.util.Base64
+import java.util.TimeZone
 import javax.net.ssl.SSLSocket
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -10,20 +11,42 @@ import org.json.JSONObject
 /**
  * Provisions an LG appliance, replicating `rethink-setup.ts`.
  *
- * ThinQ1 (mTosp/XML) is attempted first; its framing should be rejected by ThinQ2
- * appliances, in which case we fall back to the ThinQ2 (JSON) handshake.
+ * Appliances on a [SoftAp.THINQ] access point speak ThinQ1 or ThinQ2. ThinQ1 (mTosp/XML) is
+ * attempted first; its framing should be rejected by ThinQ2 appliances, in which case we fall
+ * back to the ThinQ2 (JSON) handshake. Appliances on a [SoftAp.WHISEN] access point speak the
+ * Whisen HTTP-over-TLS protocol instead.
  *
  * All socket I/O runs on [Dispatchers.IO]. Progress is reported through [log].
  */
 object DeviceSetup {
 
-    const val DEFAULT_HOST = "192.168.120.254"
-    const val DEFAULT_PORT = 5500
+    /**
+     * The flavours of appliance access point. Upstream tries both protocols at once against a
+     * single host; here the SoftAP is identified up front by the subnet its DHCP hands out, since
+     * the two listen on different addresses.
+     *
+     * TODO: confirm that Whisen appliances use 192.168.1.x exclusively (and ThinQ ones
+     * 192.168.120.x). Upstream only documents one Whisen unit (RAC_056905_WW) at 192.168.1.1 and
+     * does not tie the protocol to the subnet.
+     */
+    enum class SoftAp(val host: String, val port: Int) {
+        /** ThinQ1 / ThinQ2 appliances. */
+        THINQ("192.168.120.254", 5500),
 
-    /** DHCP on the appliance AP hands out addresses in this /24, e.g. "192.168.120." */
-    val EXPECTED_SUBNET_PREFIX = DEFAULT_HOST.substringBeforeLast('.') + "."
+        /** Whisen appliances (QCA4002 module, e.g. RAC_056905_WW), which don't listen on 5500. */
+        WHISEN("192.168.1.1", Whisen.PORT);
+
+        /** DHCP on this AP hands out addresses in this /24, e.g. "192.168.120." */
+        val subnetPrefix = host.substringBeforeLast('.') + "."
+
+        companion object {
+            /** The SoftAP whose subnet contains the phone's [ip], or null. */
+            fun forAddress(ip: String): SoftAp? = entries.firstOrNull { ip.startsWith(it.subnetPrefix) }
+        }
+    }
 
     private const val IO_TIMEOUT_MS = 8000
+    private const val WHISEN_TIMEOUT_MS = 15000
 
     // The public key used by the official LG cloud. We don't hold the private key and
     // don't need to verify anything, so reusing LG's key keeps setup simple — see the
@@ -44,19 +67,24 @@ QwIDAQAB
 
     suspend fun provision(
         network: Network,
-        host: String,
-        port: Int,
+        softAp: SoftAp,
         ssid: String,
         password: String,
         log: (String) -> Unit,
     ) = withContext(Dispatchers.IO) {
-        try {
-            log("Trying ThinQ 1 setup")
-            thinq1(network, host, port, ssid, password, log)
-        } catch (e: Exception) {
-            log("ThinQ 1 setup failed: ${e.message}")
-            log("Trying ThinQ 2 setup")
-            thinq2(network, host, port, ssid, password, log)
+        val host = softAp.host
+        val port = softAp.port
+        when (softAp) {
+            SoftAp.THINQ -> try {
+                log("Trying ThinQ 1 setup")
+                thinq1(network, host, port, ssid, password, log)
+            } catch (e: Exception) {
+                log("ThinQ 1 setup failed: ${e.message}")
+                log("Trying ThinQ 2 setup")
+                thinq2(network, host, port, ssid, password, log)
+            }
+
+            SoftAp.WHISEN -> whisen(network, host, port, ssid, password, log)
         }
     }
 
@@ -203,6 +231,67 @@ QwIDAQAB
                     if (done) break
                 }
             }
+        } finally {
+            closeQuietly(socket)
+        }
+    }
+
+    // --- Whisen (HTTP over TLS) -----------------------------------------------
+
+    private fun whisen(
+        network: Network,
+        host: String,
+        port: Int,
+        ssid: String,
+        password: String,
+        log: (String) -> Unit,
+    ) {
+        fun request(path: String, body: String, headers: List<String>? = null): String =
+            whisenRequest(network, host, port, path, Whisen.request(path, body, headers), log)
+
+        log("Connecting to $host:$port")
+        request("/SetDeviceInit", "")
+
+        // Answers 500 on the RAC_056905_WW firmware
+        Whisen.parseMembers(request("/GetDeviceInfo", ""))?.let { log("device info: $it") }
+
+        // Nation is the country code, sent as subCountryCode by the other setups. The RAC_056905_WW
+        // firmware ignores regionalCode and picks its server from Nation: DE makes it connect to
+        // eic.lgthinq.com. Must precede SetDeviceConfig: ReleaseDevAp at the end takes the SoftAP down.
+        val infoReply = request("/SetDeviceInfo", Whisen.deviceInfoBody("DE", "rethink"))
+        if (Whisen.statusCode(infoReply) != 200) throw IllegalStateException("SetDeviceInfo rejected")
+
+        val offsetMinutes = TimeZone.getDefault().getOffset(System.currentTimeMillis()) / 60000
+        val cfgReply = request(
+            "/SetDeviceConfig",
+            Whisen.deviceConfigBody(ssid, password, Whisen.timezone(offsetMinutes)),
+            Whisen.DEVICE_CONFIG_HEADERS,
+        )
+        if (Whisen.statusCode(cfgReply) != 200) {
+            throw IllegalStateException("SetDeviceConfig rejected, appliance left in AP mode")
+        }
+
+        request("/ReleaseDevAp", "")
+        log("Whisen setup successful, see rethink-cloud logs for a follow-up")
+    }
+
+    /** Opens a fresh TLS connection, sends one request and returns everything read until the appliance closes it. */
+    private fun whisenRequest(
+        network: Network,
+        host: String,
+        port: Int,
+        path: String,
+        request: ByteArray,
+        log: (String) -> Unit,
+    ): String {
+        val socket = Tls.connect(network, host, port, WHISEN_TIMEOUT_MS, tls12Only = true)
+        try {
+            log("Request: POST $path")
+            socket.outputStream.write(request)
+            socket.outputStream.flush()
+            val reply = socket.inputStream.readBytes().toString(Charsets.UTF_8)
+            log("response: ${JSONObject.quote(reply)}")
+            return reply
         } finally {
             closeQuietly(socket)
         }
