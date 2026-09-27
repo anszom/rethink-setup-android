@@ -271,7 +271,14 @@ QwIDAQAB
             throw IllegalStateException("SetDeviceConfig rejected, appliance left in AP mode")
         }
 
-        request("/ReleaseDevAp", "")
+        // The appliance often drops its SoftAP before the reply reaches us ("Software caused
+        // connection abort"). Like the LG app, ignore any failure here: success was already decided
+        // by SetDeviceConfig, where the appliance accepted the Wi-Fi details.
+        try {
+            request("/ReleaseDevAp", "")
+        } catch (e: Exception) {
+            log("ReleaseDevAp failed (ignored, the appliance has likely left AP mode): ${e.message}")
+        }
         log("Whisen setup successful, see rethink-cloud logs for a follow-up")
     }
 
