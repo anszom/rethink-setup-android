@@ -6,6 +6,7 @@ import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import io.github.anszom.rethink.setup.net.DeviceSetup
+import io.github.anszom.rethink.setup.net.DeviceSetup.SoftAp
 import io.github.anszom.rethink.setup.net.WifiMonitor
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -59,18 +60,33 @@ class ProvisionViewModel @Inject constructor(
         pollJob = viewModelScope.launch {
             while (isActive) {
                 val ip = wifi.ipv4Address()?.hostAddress
-                val matches = ip != null && ip.startsWith(DeviceSetup.EXPECTED_SUBNET_PREFIX)
+                val softAp = currentSoftAp()
                 val message = when {
                     ip == null -> "Waiting for Wi-Fi connection…"
-                    matches -> "Connected — IP $ip ✓ (appliance network)"
-                    else -> "Connected — IP $ip\nThis is not the appliance network " +
-                            "(expected ${DeviceSetup.EXPECTED_SUBNET_PREFIX}x). Switch Wi-Fi networks."
+                    wifi.hasValidatedInternet() -> "Connected — IP $ip\nThis network has internet " +
+                            "access, so it is not the appliance network. Switch Wi-Fi networks."
+                    softAp == SoftAp.THINQ -> "Connected — IP $ip ✓ (appliance network)"
+                    // Plenty of home routers use 192.168.1.x too, and internet validation lags the
+                    // connection by a few seconds, so keep the warning.
+                    softAp == SoftAp.WHISEN -> "Connected — IP $ip ✓ (Whisen appliance network)\n" +
+                            "Make sure this is the appliance's Wi-Fi and not your home network."
+                    else -> "Connected — IP $ip\nThis is not the appliance network (expected " +
+                            SoftAp.entries.joinToString(" or ") { "${it.subnetPrefix}x" } +
+                            "). Switch Wi-Fi networks."
                 }
-                stepTwo(message, matches)
+                stepTwo(message, softAp != null)
                 delay(1000)
             }
         }
     }
+
+    /**
+     * The appliance AP the phone is on, judged by its subnet. Appliance APs have no internet, so a
+     * network with validated internet access is ruled out first.
+     */
+    private fun currentSoftAp(): SoftAp? =
+        if (wifi.hasValidatedInternet()) null
+        else wifi.ipv4Address()?.hostAddress?.let { SoftAp.forAddress(it) }
 
     private fun saveCredentials(ssid: String, password: String) {
         this.ssid = ssid
@@ -96,13 +112,14 @@ class ProvisionViewModel @Inject constructor(
 
         _uiState.value = ProvisionScreenState.StepThree("")
         pollJob?.cancel()
-        wifi.network?.let {
+        val network = wifi.network
+        val softAp = currentSoftAp()
+        if (network != null && softAp != null) {
             viewModelScope.launch {
                 try {
                     DeviceSetup.provision(
-                        it,
-                        DeviceSetup.DEFAULT_HOST,
-                        DeviceSetup.DEFAULT_PORT,
+                        network,
+                        softAp,
                         ssid,
                         password,
                     ) { message ->
@@ -119,7 +136,7 @@ class ProvisionViewModel @Inject constructor(
                     )
                 }
             }
-        } ?: run {
+        } else {
             stepThree("Lost the appliance Wi-Fi connection", finished = true)
         }
     }
